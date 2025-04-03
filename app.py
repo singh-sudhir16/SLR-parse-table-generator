@@ -38,10 +38,10 @@ def process_grammar(grammar):
         for prod in productions:
             symbols = prod.split()
             for symbol in symbols:
-                if symbol not in non_terminals and symbol != 'ε':
+                if symbol not in non_terminals and symbol != '#':
                     terminals.add(symbol)
             # Add production to augmented grammar
-            augmented_grammar.append((nt, tuple(symbols) if prod != 'ε' else tuple()))
+            augmented_grammar.append((nt, tuple(symbols) if prod != '#' else tuple()))
     terminals.add('$')
     return start_symbol, terminals, non_terminals, augmented_grammar
 
@@ -60,15 +60,15 @@ def compute_first_sets(grammar, terminals, non_terminals):
     
     # For any NT with epsilon production
     for nt, productions in grammar.items():
-        if 'ε' in productions:
-            first_sets[nt].add('ε')
+        if '#' in productions:
+            first_sets[nt].add('#')
     
     changed = True
     while changed:
         changed = False
         for nt, productions in grammar.items():
             for prod in productions:
-                if prod == 'ε':
+                if prod == '#':
                     continue
                 symbols = prod.split()
                 i = 0
@@ -76,15 +76,15 @@ def compute_first_sets(grammar, terminals, non_terminals):
                 while i < len(symbols) and can_derive_epsilon:
                     symbol = symbols[i]
                     if symbol in first_sets:
-                        non_epsilon = first_sets[symbol] - {'ε'}
+                        non_epsilon = first_sets[symbol] - {'#'}
                         old_len = len(first_sets[nt])
                         first_sets[nt].update(non_epsilon)
                         if len(first_sets[nt]) > old_len:
                             changed = True
-                    can_derive_epsilon = ('ε' in first_sets.get(symbol, set()))
+                    can_derive_epsilon = ('#' in first_sets.get(symbol, set()))
                     i += 1
-                if can_derive_epsilon and i == len(symbols) and 'ε' not in first_sets[nt]:
-                    first_sets[nt].add('ε')
+                if can_derive_epsilon and i == len(symbols) and '#' not in first_sets[nt]:
+                    first_sets[nt].add('#')
                     changed = True
     return first_sets
 
@@ -98,7 +98,7 @@ def compute_follow_sets(grammar, non_terminals, start_symbol, first_sets):
         changed = False
         for nt, productions in grammar.items():
             for prod in productions:
-                if prod == 'ε':
+                if prod == '#':
                     continue
                 symbols = prod.split()
                 for i, symbol in enumerate(symbols):
@@ -106,12 +106,12 @@ def compute_follow_sets(grammar, non_terminals, start_symbol, first_sets):
                         if i < len(symbols) - 1:
                             next_seq = symbols[i+1:]
                             seq_first = compute_first_of_sequence(next_seq, first_sets)
-                            non_epsilon = seq_first - {'ε'}
+                            non_epsilon = seq_first - {'#'}
                             old_len = len(follow_sets[symbol])
                             follow_sets[symbol].update(non_epsilon)
                             if len(follow_sets[symbol]) > old_len:
                                 changed = True
-                            if 'ε' in seq_first:
+                            if '#' in seq_first:
                                 old_len = len(follow_sets[symbol])
                                 follow_sets[symbol].update(follow_sets[nt])
                                 if len(follow_sets[symbol]) > old_len:
@@ -126,17 +126,17 @@ def compute_follow_sets(grammar, non_terminals, start_symbol, first_sets):
 def compute_first_of_sequence(symbols, first_sets):
     """Compute FIRST set of a sequence of symbols."""
     if not symbols:
-        return {'ε'}
+        return {'#'}
     result = set()
     all_epsilon = True
     for symbol in symbols:
-        non_epsilon = first_sets[symbol] - {'ε'}
+        non_epsilon = first_sets[symbol] - {'#'}
         result.update(non_epsilon)
-        if 'ε' not in first_sets[symbol]:
+        if '#' not in first_sets[symbol]:
             all_epsilon = False
             break
     if all_epsilon:
-        result.add('ε')
+        result.add('#')
     return result
 
 # --------------------------
@@ -160,7 +160,7 @@ def closure(items, grammar, non_terminals):
                     next_symbol = rhs[dot_pos + 1]
                     if next_symbol in non_terminals:
                         for prod in grammar.get(next_symbol, []):
-                            if prod == 'ε':
+                            if prod == '#':
                                 new_item = (next_symbol, ('DOT',))
                             else:
                                 new_item = (next_symbol, tuple(['DOT'] + prod.split()))
@@ -315,7 +315,7 @@ def parse_input(input_string, parsing_table, augmented_grammar, canonical_collec
                 if goto_actions:
                     next_state = int(goto_actions[0])
                     stack.append(next_state)
-                    rhs_str = ' '.join(prod_rhs) if prod_rhs else 'ε'
+                    rhs_str = ' '.join(prod_rhs) if prod_rhs else '#'
                     actions.append(f"Reduce by {prod_nt} -> {rhs_str}, go to state {next_state}")
                 else:
                     actions.append(f"Error: No goto action for state {current_state} and non-terminal {prod_nt}")
@@ -357,7 +357,7 @@ def get_productions(augmented_grammar):
     for i, (nt, rhs) in enumerate(augmented_grammar):
         if i == 0:
             continue
-        prod_str = f"{i}. {nt} -> {' '.join(rhs) if rhs else 'ε'}"
+        prod_str = f"{i}. {nt} -> {' '.join(rhs) if rhs else '#'}"
         productions.append(prod_str)
     return productions
 
@@ -387,7 +387,7 @@ E -> E + T | T
 T -> T * F | F
 F -> ( E ) | id
     """
-    grammar_input = st.sidebar.text_area("Enter grammar (one production per line, use 'ε' for epsilon):", 
+    grammar_input = st.sidebar.text_area("Enter grammar (one production per line, use '#' for epsilon):", 
                                            value=example_grammar, height=200)
     
     if st.sidebar.button("Generate Parser"):
