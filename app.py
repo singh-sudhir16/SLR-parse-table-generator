@@ -1,443 +1,453 @@
 import streamlit as st
 import pandas as pd
-import re
 from collections import defaultdict, deque
 
-class SLRParser:
-    def __init__(self, grammar_input):
-        self.grammar = self.parse_grammar(grammar_input)
-        self.terminals = set()
-        self.non_terminals = set()
-        self.start_symbol = None
-        self.first_sets = {}
-        self.follow_sets = {}
-        self.canonical_collection = []
-        self.goto_table = {}
-        self.parsing_table = {}
-        self.augmented_grammar = []
-        
-        self.process_grammar()
-        self.compute_first_sets()
-        self.compute_follow_sets()
-        self.build_canonical_collection()
-        self.construct_parsing_table()
+# --------------------------
+# Grammar Parsing and Processing
+# --------------------------
+
+def parse_grammar(grammar_input):
+    """Parse the input grammar into a dictionary."""
+    grammar = {}
+    lines = grammar_input.strip().split('\n')
+    for line in lines:
+        if '->' not in line:
+            continue
+        lhs, rhs = line.split('->', 1)
+        lhs = lhs.strip()
+        productions = [p.strip() for p in rhs.split('|')]
+        if lhs not in grammar:
+            grammar[lhs] = []
+        grammar[lhs].extend(productions)
+    return grammar
+
+def process_grammar(grammar):
+    """
+    Extract terminals, non-terminals, and create augmented grammar.
+    Returns: start_symbol, terminals, non_terminals, augmented_grammar.
+    """
+    start_symbol = list(grammar.keys())[0]
+    augmented_start = f"{start_symbol}'"
+    # Augmented grammar: list of (LHS, production-tuple)
+    augmented_grammar = [(augmented_start, (start_symbol,))]
     
-    def parse_grammar(self, grammar_input):
-        """Parse the input grammar into a dictionary."""
-        grammar = {}
-        lines = grammar_input.strip().split('\n')
-        
-        for line in lines:
-            if '->' not in line:
-                continue
-            lhs, rhs = line.split('->', 1)
-            lhs = lhs.strip()
-            productions = [p.strip() for p in rhs.split('|')]
-            if lhs not in grammar:
-                grammar[lhs] = []
-            grammar[lhs].extend(productions)
-        return grammar
+    non_terminals = set(grammar.keys())
+    terminals = set()
     
-    def process_grammar(self):
-        """Extract terminals, non-terminals and create augmented grammar."""
-        # Set the start symbol as the first non-terminal in the grammar
-        self.start_symbol = list(self.grammar.keys())[0]
-        
-        # Add augmented production S' -> S
-        augmented_start = f"{self.start_symbol}'"
-        self.augmented_grammar.append((augmented_start, tuple([self.start_symbol])))
-        
-        # Extract terminals and non-terminals
-        self.non_terminals = set(self.grammar.keys())
-        
-        for nt, productions in self.grammar.items():
+    for nt, productions in grammar.items():
+        for prod in productions:
+            symbols = prod.split()
+            for symbol in symbols:
+                if symbol not in non_terminals and symbol != 'ε':
+                    terminals.add(symbol)
+            # Add production to augmented grammar
+            augmented_grammar.append((nt, tuple(symbols) if prod != 'ε' else tuple()))
+    terminals.add('$')
+    return start_symbol, terminals, non_terminals, augmented_grammar
+
+# --------------------------
+# FIRST and FOLLOW Sets
+# --------------------------
+
+def compute_first_sets(grammar, terminals, non_terminals):
+    """Compute FIRST sets for all symbols."""
+    first_sets = {}
+    # Initialize FIRST sets for non-terminals and terminals.
+    for nt in non_terminals:
+        first_sets[nt] = set()
+    for terminal in terminals:
+        first_sets[terminal] = {terminal}
+    
+    # For any NT with epsilon production
+    for nt, productions in grammar.items():
+        if 'ε' in productions:
+            first_sets[nt].add('ε')
+    
+    changed = True
+    while changed:
+        changed = False
+        for nt, productions in grammar.items():
             for prod in productions:
+                if prod == 'ε':
+                    continue
                 symbols = prod.split()
-                for symbol in symbols:
-                    if symbol not in self.non_terminals and symbol != 'ε':
-                        self.terminals.add(symbol)
-                # Add original production to augmented grammar
-                self.augmented_grammar.append((nt, tuple(symbols) if prod != 'ε' else tuple()))
-        
-        self.terminals.add('$')  # Add end marker
+                i = 0
+                can_derive_epsilon = True
+                while i < len(symbols) and can_derive_epsilon:
+                    symbol = symbols[i]
+                    if symbol in first_sets:
+                        non_epsilon = first_sets[symbol] - {'ε'}
+                        old_len = len(first_sets[nt])
+                        first_sets[nt].update(non_epsilon)
+                        if len(first_sets[nt]) > old_len:
+                            changed = True
+                    can_derive_epsilon = ('ε' in first_sets.get(symbol, set()))
+                    i += 1
+                if can_derive_epsilon and i == len(symbols) and 'ε' not in first_sets[nt]:
+                    first_sets[nt].add('ε')
+                    changed = True
+    return first_sets
+
+def compute_follow_sets(grammar, non_terminals, start_symbol, first_sets):
+    """Compute FOLLOW sets for all non-terminals."""
+    follow_sets = {nt: set() for nt in non_terminals}
+    follow_sets[start_symbol].add('$')
     
-    def compute_first_sets(self):
-        """Compute FIRST sets for all symbols."""
-        # Initialize FIRST sets
-        for nt in self.non_terminals:
-            self.first_sets[nt] = set()
-        for terminal in self.terminals:
-            self.first_sets[terminal] = {terminal}
-        
-        # Add ε to FIRST sets of non-terminals with ε-productions
-        for nt, productions in self.grammar.items():
-            if 'ε' in productions:
-                self.first_sets[nt].add('ε')
-        
-        # Compute FIRST sets until no more changes
-        changed = True
-        while changed:
-            changed = False
-            for nt, productions in self.grammar.items():
-                for prod in productions:
-                    if prod == 'ε':
-                        continue
-                    symbols = prod.split()
-                    i = 0
-                    can_derive_epsilon = True
-                    while i < len(symbols) and can_derive_epsilon:
-                        symbol = symbols[i]
-                        if symbol in self.first_sets:
-                            non_epsilon_first = self.first_sets[symbol] - {'ε'}
-                            old_size = len(self.first_sets[nt])
-                            self.first_sets[nt].update(non_epsilon_first)
-                            if len(self.first_sets[nt]) > old_size:
+    changed = True
+    while changed:
+        changed = False
+        for nt, productions in grammar.items():
+            for prod in productions:
+                if prod == 'ε':
+                    continue
+                symbols = prod.split()
+                for i, symbol in enumerate(symbols):
+                    if symbol in non_terminals:
+                        if i < len(symbols) - 1:
+                            next_seq = symbols[i+1:]
+                            seq_first = compute_first_of_sequence(next_seq, first_sets)
+                            non_epsilon = seq_first - {'ε'}
+                            old_len = len(follow_sets[symbol])
+                            follow_sets[symbol].update(non_epsilon)
+                            if len(follow_sets[symbol]) > old_len:
                                 changed = True
-                        can_derive_epsilon = ('ε' in self.first_sets.get(symbol, set()))
-                        i += 1
-                    if can_derive_epsilon and i == len(symbols) and 'ε' not in self.first_sets[nt]:
-                        self.first_sets[nt].add('ε')
-                        changed = True
-    
-    def compute_follow_sets(self):
-        """Compute FOLLOW sets for all non-terminals."""
-        # Initialize FOLLOW sets
-        for nt in self.non_terminals:
-            self.follow_sets[nt] = set()
-        # Add $ to FOLLOW of start symbol
-        self.follow_sets[self.start_symbol].add('$')
-        # Compute FOLLOW sets until no more changes
-        changed = True
-        while changed:
-            changed = False
-            for nt, productions in self.grammar.items():
-                for prod in productions:
-                    if prod == 'ε':
-                        continue
-                    symbols = prod.split()
-                    for i, symbol in enumerate(symbols):
-                        if symbol in self.non_terminals:
-                            if i < len(symbols) - 1:
-                                next_symbols = symbols[i+1:]
-                                sequence_first = self.compute_first_of_sequence(next_symbols)
-                                non_epsilon_first = sequence_first - {'ε'}
-                                old_size = len(self.follow_sets[symbol])
-                                self.follow_sets[symbol].update(non_epsilon_first)
-                                if len(self.follow_sets[symbol]) > old_size:
+                            if 'ε' in seq_first:
+                                old_len = len(follow_sets[symbol])
+                                follow_sets[symbol].update(follow_sets[nt])
+                                if len(follow_sets[symbol]) > old_len:
                                     changed = True
-                                if 'ε' in sequence_first:
-                                    old_size = len(self.follow_sets[symbol])
-                                    self.follow_sets[symbol].update(self.follow_sets[nt])
-                                    if len(self.follow_sets[symbol]) > old_size:
-                                        changed = True
-                            else:
-                                old_size = len(self.follow_sets[symbol])
-                                self.follow_sets[symbol].update(self.follow_sets[nt])
-                                if len(self.follow_sets[symbol]) > old_size:
-                                    changed = True
-    
-    def compute_first_of_sequence(self, symbols):
-        """Compute FIRST set of a sequence of symbols."""
-        if not symbols:
-            return {'ε'}
-        result = set()
-        all_can_derive_epsilon = True
-        for symbol in symbols:
-            if symbol not in self.first_sets:
-                result.add(symbol)
-                all_can_derive_epsilon = False
-                break
-            non_epsilon_first = self.first_sets[symbol] - {'ε'}
-            result.update(non_epsilon_first)
-            if 'ε' not in self.first_sets[symbol]:
-                all_can_derive_epsilon = False
-                break
-        if all_can_derive_epsilon:
-            result.add('ε')
-        return result
-    
-    def build_canonical_collection(self):
-        """Build the canonical collection of LR(0) items."""
-        # Create augmented start production item: (S', [DOT, S])
-        augmented_start = f"{self.start_symbol}'"
-        initial_item = (augmented_start, tuple(['DOT', self.start_symbol]))
-        initial_state = self.closure({initial_item})
-        self.canonical_collection.append(initial_state)
-        
-        i = 0
-        while i < len(self.canonical_collection):
-            state = self.canonical_collection[i]
-            next_symbols = set()
-            for item in state:
-                nt, rhs = item
-                try:
-                    dot_pos = rhs.index('DOT')
-                    if dot_pos < len(rhs) - 1:
-                        next_symbols.add(rhs[dot_pos + 1])
-                except ValueError:
-                    continue
-            for symbol in next_symbols:
-                next_state = self.goto(state, symbol)
-                if next_state and next_state not in self.canonical_collection:
-                    self.canonical_collection.append(next_state)
-                if next_state:
-                    self.goto_table[(i, symbol)] = self.canonical_collection.index(next_state)
-            i += 1
-    
-    def closure(self, items):
-        """Compute the closure of a set of LR(0) items."""
-        result = set(items)
-        changed = True
-        while changed:
-            changed = False
-            new_items = set()
-            for item in result:
-                nt, rhs = item
-                try:
-                    dot_pos = rhs.index('DOT')
-                    if dot_pos < len(rhs) - 1:
-                        next_symbol = rhs[dot_pos + 1]
-                        if next_symbol in self.non_terminals:
-                            for prod_rhs in self.grammar.get(next_symbol, []):
-                                if prod_rhs == 'ε':
-                                    new_item = (next_symbol, tuple(['DOT']))
-                                else:
-                                    new_item = (next_symbol, tuple(['DOT'] + prod_rhs.split()))
-                                if new_item not in result:
-                                    new_items.add(new_item)
-                                    changed = True
-                except ValueError:
-                    continue
-            result.update(new_items)
-        return frozenset(result)
-    
-    def goto(self, items, symbol):
-        """Compute goto(I, X) where I is a set of items and X is a grammar symbol."""
-        next_items = set()
-        for item in items:
+                        else:
+                            old_len = len(follow_sets[symbol])
+                            follow_sets[symbol].update(follow_sets[nt])
+                            if len(follow_sets[symbol]) > old_len:
+                                changed = True
+    return follow_sets
+
+def compute_first_of_sequence(symbols, first_sets):
+    """Compute FIRST set of a sequence of symbols."""
+    if not symbols:
+        return {'ε'}
+    result = set()
+    all_epsilon = True
+    for symbol in symbols:
+        non_epsilon = first_sets[symbol] - {'ε'}
+        result.update(non_epsilon)
+        if 'ε' not in first_sets[symbol]:
+            all_epsilon = False
+            break
+    if all_epsilon:
+        result.add('ε')
+    return result
+
+# --------------------------
+# LR(0) Items, Closure, and Goto
+# --------------------------
+
+def closure(items, grammar, non_terminals):
+    """Compute the closure of a set of LR(0) items.
+       Each item is a tuple (LHS, rhs-tuple) with 'DOT' marking the position.
+    """
+    result = set(items)
+    changed = True
+    while changed:
+        changed = False
+        new_items = set()
+        for item in result:
             nt, rhs = item
             try:
                 dot_pos = rhs.index('DOT')
-                if dot_pos < len(rhs) - 1 and rhs[dot_pos + 1] == symbol:
-                    new_rhs = list(rhs)
-                    new_rhs[dot_pos], new_rhs[dot_pos + 1] = new_rhs[dot_pos + 1], new_rhs[dot_pos]
-                    next_items.add((nt, tuple(new_rhs)))
+                if dot_pos < len(rhs) - 1:
+                    next_symbol = rhs[dot_pos + 1]
+                    if next_symbol in non_terminals:
+                        for prod in grammar.get(next_symbol, []):
+                            if prod == 'ε':
+                                new_item = (next_symbol, ('DOT',))
+                            else:
+                                new_item = (next_symbol, tuple(['DOT'] + prod.split()))
+                            if new_item not in result:
+                                new_items.add(new_item)
+                                changed = True
             except ValueError:
                 continue
-        if next_items:
-            return self.closure(next_items)
-        else:
-            return None
+        result.update(new_items)
+    return frozenset(result)
+
+def goto(items, symbol, grammar, non_terminals):
+    """Compute goto(I, X) where I is a set of items and X is a grammar symbol."""
+    next_items = set()
+    for item in items:
+        nt, rhs = item
+        try:
+            dot_pos = rhs.index('DOT')
+            if dot_pos < len(rhs) - 1 and rhs[dot_pos + 1] == symbol:
+                new_rhs = list(rhs)
+                new_rhs[dot_pos], new_rhs[dot_pos + 1] = new_rhs[dot_pos + 1], new_rhs[dot_pos]
+                next_items.add((nt, tuple(new_rhs)))
+        except ValueError:
+            continue
+    if next_items:
+        return closure(next_items, grammar, non_terminals)
+    else:
+        return None
+
+def build_canonical_collection(grammar, non_terminals, start_symbol):
+    """Build the canonical collection of LR(0) items and the goto table."""
+    augmented_start = f"{start_symbol}'"
+    initial_item = (augmented_start, ('DOT', start_symbol))
+    initial_state = closure({initial_item}, grammar, non_terminals)
     
-    def construct_parsing_table(self):
-        """Construct the SLR parsing table."""
-        # Initialize the parsing table structure
-        for i in range(len(self.canonical_collection)):
-            self.parsing_table[i] = {}
-            for symbol in self.terminals | self.non_terminals:
-                self.parsing_table[i][symbol] = []
-        # Fill actions based on canonical collection
-        for i, state in enumerate(self.canonical_collection):
-            for item in state:
-                nt, rhs = item
-                try:
-                    dot_pos = rhs.index('DOT')
-                    if dot_pos < len(rhs) - 1:
-                        next_symbol = rhs[dot_pos + 1]
-                        if next_symbol in self.terminals and (i, next_symbol) in self.goto_table:
-                            next_state = self.goto_table[(i, next_symbol)]
-                            action = f"s{next_state}"
-                            if action not in self.parsing_table[i][next_symbol]:
-                                self.parsing_table[i][next_symbol].append(action)
-                    elif dot_pos == len(rhs) - 1 or (len(rhs) == 1 and rhs[0] == 'DOT'):
-                        if nt == f"{self.start_symbol}'" and len(rhs) == 2 and rhs[1] == self.start_symbol:
-                            self.parsing_table[i]['$'].append("acc")
-                        else:
-                            prod_num = -1
-                            for j, (prod_nt, prod_rhs) in enumerate(self.augmented_grammar):
-                                if prod_nt == nt:
-                                    # Remove 'DOT' from the item’s RHS
-                                    item_rhs_without_dot = tuple([s for s in rhs if s != 'DOT'])
-                                    if prod_rhs == item_rhs_without_dot:
-                                        prod_num = j
-                                        break
-                            if prod_num != -1:
-                                for follow_symbol in self.follow_sets.get(nt, set()):
-                                    action = f"r{prod_num}"
-                                    if action not in self.parsing_table[i][follow_symbol]:
-                                        self.parsing_table[i][follow_symbol].append(action)
-                except ValueError:
-                    continue
-            for nt in self.non_terminals:
-                if (i, nt) in self.goto_table:
-                    next_state = self.goto_table[(i, nt)]
-                    self.parsing_table[i][nt].append(str(next_state))
+    canonical_collection = [initial_state]
+    goto_table = {}
     
-    def parse_input(self, input_string):
-        """Parse the input string using the SLR parsing table."""
-        tokens = input_string.strip().split()
-        tokens.append('$')
-        stack = [0]
-        pointer = 0
-        actions = []
-        while True:
-            current_state = stack[-1]
-            current_token = tokens[pointer]
-            if current_token not in self.parsing_table[current_state]:
-                actions.append(f"Error: Unexpected token {current_token}")
-                return actions, False
-            possible_actions = self.parsing_table[current_state][current_token]
-            if not possible_actions:
-                actions.append(f"Error: No action for state {current_state} and token {current_token}")
-                return actions, False
-            if len(possible_actions) > 1:
-                actions.append(f"Error: Conflict in parsing table for state {current_state} and token {current_token}")
-                return actions, False
-            action = possible_actions[0]
-            if action.startswith('s'):
-                next_state = int(action[1:])
-                stack.append(current_token)
-                stack.append(next_state)
-                actions.append(f"Shift {current_token}, go to state {next_state}")
-                pointer += 1
-            elif action.startswith('r'):
-                prod_num = int(action[1:])
-                prod_nt, prod_rhs = self.augmented_grammar[prod_num]
-                for _ in range(2 * len(prod_rhs)):
-                    stack.pop()
-                current_state = stack[-1]
-                stack.append(prod_nt)
-                if prod_nt in self.parsing_table[current_state]:
-                    goto_actions = self.parsing_table[current_state][prod_nt]
-                    if goto_actions:
-                        next_state = int(goto_actions[0])
-                        stack.append(next_state)
-                        actions.append(f"Reduce by {prod_nt} -> {' '.join(prod_rhs) if prod_rhs else 'ε'}, go to state {next_state}")
-                    else:
-                        actions.append(f"Error: No goto action for state {current_state} and non-terminal {prod_nt}")
-                        return actions, False
-                else:
-                    actions.append(f"Error: No entry in parsing table for state {current_state} and non-terminal {prod_nt}")
-                    return actions, False
-            elif action == "acc":
-                actions.append("Accept! Input successfully parsed.")
-                return actions, True
-            else:
-                actions.append(f"Error: Invalid action {action}")
-                return actions, False
-    
-    def format_parsing_table(self):
-        """Format the parsing table for display without an extra 'State' column."""
-        # Sort terminals and non-terminals for consistent display
-        sorted_terminals = sorted(self.terminals)
-        sorted_non_terminals = sorted(self.non_terminals)
-        header = sorted_terminals + sorted_non_terminals
-        rows = {}
-        for state in range(len(self.canonical_collection)):
-            row = []
-            for terminal in sorted_terminals:
-                actions = self.parsing_table[state].get(terminal, [])
-                row.append('/'.join(actions) if actions else '')
-            for non_terminal in sorted_non_terminals:
-                actions = self.parsing_table[state].get(non_terminal, [])
-                row.append('/'.join(actions) if actions else '')
-            rows[state] = row
-        # Create DataFrame using state numbers as the index
-        return pd.DataFrame.from_dict(rows, orient='index', columns=header)
-    
-    def get_productions(self):
-        """Get the list of productions in the format needed for parsing."""
-        productions = []
-        for i, (nt, rhs) in enumerate(self.augmented_grammar):
-            if i == 0:
+    i = 0
+    while i < len(canonical_collection):
+        state = canonical_collection[i]
+        next_symbols = set()
+        for item in state:
+            nt, rhs = item
+            try:
+                dot_pos = rhs.index('DOT')
+                if dot_pos < len(rhs) - 1:
+                    next_symbols.add(rhs[dot_pos + 1])
+            except ValueError:
                 continue
-            prod_str = f"{i}. {nt} -> {' '.join(rhs) if rhs else 'ε'}"
-            productions.append(prod_str)
-        return productions
+        for symbol in next_symbols:
+            next_state = goto(state, symbol, grammar, non_terminals)
+            if next_state and next_state not in canonical_collection:
+                canonical_collection.append(next_state)
+            if next_state:
+                goto_table[(i, symbol)] = canonical_collection.index(next_state)
+        i += 1
+    return canonical_collection, goto_table
+
+# --------------------------
+# Parsing Table Construction
+# --------------------------
+
+def construct_parsing_table(canonical_collection, goto_table, terminals, non_terminals, augmented_grammar, grammar, follow_sets, start_symbol):
+    """Construct the SLR parsing table."""
+    parsing_table = {}
+    for i in range(len(canonical_collection)):
+        parsing_table[i] = {}
+        for symbol in terminals | non_terminals:
+            parsing_table[i][symbol] = []
     
-    def format_lr_items(self):
-        """Format LR(0) items for display along with derivation order."""
-        formatted = []
-        for i, state in enumerate(self.canonical_collection):
-            state_items = []
-            for nt, rhs in state:
-                formatted_rhs = []
-                for symbol in rhs:
-                    if symbol == 'DOT':
-                        formatted_rhs.append('•')
+    for i, state in enumerate(canonical_collection):
+        for item in state:
+            nt, rhs = item
+            try:
+                dot_pos = rhs.index('DOT')
+                # Shift action if dot is not at end
+                if dot_pos < len(rhs) - 1:
+                    next_symbol = rhs[dot_pos + 1]
+                    if next_symbol in terminals and (i, next_symbol) in goto_table:
+                        next_state = goto_table[(i, next_symbol)]
+                        action = f"s{next_state}"
+                        if action not in parsing_table[i][next_symbol]:
+                            parsing_table[i][next_symbol].append(action)
+                # Reduce or accept if dot is at end
+                elif dot_pos == len(rhs) - 1 or (len(rhs) == 1 and rhs[0] == 'DOT'):
+                    if nt == f"{start_symbol}'" and len(rhs) == 2 and rhs[1] == start_symbol:
+                        parsing_table[i]['$'].append("acc")
                     else:
-                        formatted_rhs.append(symbol)
-                state_items.append(f"{nt} -> {' '.join(formatted_rhs)}")
-            formatted.append((i, state_items))
-        return formatted
+                        prod_num = -1
+                        item_rhs = tuple(s for s in rhs if s != 'DOT')
+                        for j, (prod_nt, prod_rhs) in enumerate(augmented_grammar):
+                            if prod_nt == nt and prod_rhs == item_rhs:
+                                prod_num = j
+                                break
+                        if prod_num != -1:
+                            for follow_symbol in follow_sets.get(nt, set()):
+                                action = f"r{prod_num}"
+                                if action not in parsing_table[i][follow_symbol]:
+                                    parsing_table[i][follow_symbol].append(action)
+            except ValueError:
+                continue
+        for nt in non_terminals:
+            if (i, nt) in goto_table:
+                next_state = goto_table[(i, nt)]
+                parsing_table[i][nt].append(str(next_state))
+    return parsing_table
+
+# --------------------------
+# Parsing Simulation
+# --------------------------
+
+def parse_input(input_string, parsing_table, augmented_grammar, canonical_collection):
+    """Parse the input string using the SLR parsing table.
+       Returns (list of step actions, success flag).
+    """
+    tokens = input_string.strip().split()
+    tokens.append('$')
+    stack = [0]
+    pointer = 0
+    actions = []
+    
+    while True:
+        current_state = stack[-1]
+        current_token = tokens[pointer]
+        if current_token not in parsing_table[current_state]:
+            actions.append(f"Error: Unexpected token {current_token}")
+            return actions, False
+        possible_actions = parsing_table[current_state][current_token]
+        if not possible_actions:
+            actions.append(f"Error: No action for state {current_state} and token {current_token}")
+            return actions, False
+        if len(possible_actions) > 1:
+            actions.append(f"Error: Conflict in parsing table for state {current_state} and token {current_token}")
+            return actions, False
+        action = possible_actions[0]
+        if action.startswith('s'):
+            next_state = int(action[1:])
+            stack.append(current_token)
+            stack.append(next_state)
+            actions.append(f"Shift {current_token}, go to state {next_state}")
+            pointer += 1
+        elif action.startswith('r'):
+            prod_num = int(action[1:])
+            prod_nt, prod_rhs = augmented_grammar[prod_num]
+            for _ in range(2 * len(prod_rhs)):
+                stack.pop()
+            current_state = stack[-1]
+            stack.append(prod_nt)
+            if prod_nt in parsing_table[current_state]:
+                goto_actions = parsing_table[current_state][prod_nt]
+                if goto_actions:
+                    next_state = int(goto_actions[0])
+                    stack.append(next_state)
+                    rhs_str = ' '.join(prod_rhs) if prod_rhs else 'ε'
+                    actions.append(f"Reduce by {prod_nt} -> {rhs_str}, go to state {next_state}")
+                else:
+                    actions.append(f"Error: No goto action for state {current_state} and non-terminal {prod_nt}")
+                    return actions, False
+            else:
+                actions.append(f"Error: No entry in parsing table for state {current_state} and non-terminal {prod_nt}")
+                return actions, False
+        elif action == "acc":
+            actions.append("Accept! Input successfully parsed.")
+            return actions, True
+        else:
+            actions.append(f"Error: Invalid action {action}")
+            return actions, False
+
+# --------------------------
+# Formatting Functions for Display
+# --------------------------
+
+def format_parsing_table(parsing_table, canonical_collection, terminals, non_terminals):
+    """Format the parsing table into a DataFrame (without an extra 'State' column)."""
+    sorted_terminals = sorted(terminals)
+    sorted_non_terminals = sorted(non_terminals)
+    header = sorted_terminals + sorted_non_terminals
+    rows = {}
+    for state in range(len(canonical_collection)):
+        row = []
+        for terminal in sorted_terminals:
+            acts = parsing_table[state].get(terminal, [])
+            row.append('/'.join(acts) if acts else '')
+        for nt in sorted_non_terminals:
+            acts = parsing_table[state].get(nt, [])
+            row.append('/'.join(acts) if acts else '')
+        rows[state] = row
+    return pd.DataFrame.from_dict(rows, orient='index', columns=header)
+
+def get_productions(augmented_grammar):
+    """Return a list of productions (excluding the augmented production) as strings."""
+    productions = []
+    for i, (nt, rhs) in enumerate(augmented_grammar):
+        if i == 0:
+            continue
+        prod_str = f"{i}. {nt} -> {' '.join(rhs) if rhs else 'ε'}"
+        productions.append(prod_str)
+    return productions
+
+def format_lr_items(canonical_collection):
+    """Format LR(0) items for display with derivation order."""
+    formatted = []
+    for i, state in enumerate(canonical_collection):
+        state_items = []
+        for nt, rhs in state:
+            formatted_rhs = ['•' if symbol == 'DOT' else symbol for symbol in rhs]
+            state_items.append(f"{nt} -> {' '.join(formatted_rhs)}")
+        formatted.append((i, state_items))
+    return formatted
+
+# --------------------------
+# Main Function (Enhanced Streamlit UI)
+# --------------------------
 
 def main():
+    st.set_page_config(page_title="SLR Parser Generator", layout="wide")
     st.title("SLR Parser Generator")
-    st.header("Grammar Input")
+    
+    # Sidebar for grammar input
+    st.sidebar.header("Grammar Input")
     example_grammar = """
 E -> E + T | T
 T -> T * F | F
 F -> ( E ) | id
     """
-    grammar_input = st.text_area("Enter grammar (one production per line, use 'ε' for epsilon):", 
-                                 value=example_grammar, height=200)
-    parse_button = st.button("Generate SLR Parsing Table")
-    if parse_button and grammar_input:
+    grammar_input = st.sidebar.text_area("Enter grammar (one production per line, use 'ε' for epsilon):", 
+                                           value=example_grammar, height=200)
+    
+    if st.sidebar.button("Generate Parser"):
         try:
-            parser = SLRParser(grammar_input)
+            # Processing
+            grammar = parse_grammar(grammar_input)
+            start_symbol, terminals, non_terminals, augmented_grammar = process_grammar(grammar)
+            first_sets = compute_first_sets(grammar, terminals, non_terminals)
+            follow_sets = compute_follow_sets(grammar, non_terminals, start_symbol, first_sets)
+            canonical_collection, goto_table = build_canonical_collection(grammar, non_terminals, start_symbol)
+            parsing_table = construct_parsing_table(canonical_collection, goto_table, terminals, non_terminals, 
+                                                     augmented_grammar, grammar, follow_sets, start_symbol)
             
-            st.header("Grammar Analysis")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.subheader("Terminals")
-                st.write(", ".join(sorted(parser.terminals)))
-            with col2:
-                st.subheader("Non-terminals")
-                st.write(", ".join(sorted(parser.non_terminals)))
+            # Create tabs for organized display
+            tab1, tab2, tab3, tab4, tab5 = st.tabs(["Grammar Analysis", "Productions", "LR(0) Items", "Parsing Table", "Simulation"])
             
-            st.subheader("FIRST Sets")
-            first_df = pd.DataFrame({
-                'Non-terminal': sorted(parser.non_terminals),
-                'FIRST Set': [", ".join(sorted(parser.first_sets.get(nt, []))) for nt in sorted(parser.non_terminals)]
-            })
-            st.dataframe(first_df)
+            with tab1:
+                st.header("Grammar Analysis")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.subheader("Terminals")
+                    st.write(", ".join(sorted(terminals)))
+                with col2:
+                    st.subheader("Non-terminals")
+                    st.write(", ".join(sorted(non_terminals)))
+                
+                with st.expander("FIRST Sets"):
+                    first_df = pd.DataFrame({
+                        'Non-terminal': sorted(non_terminals),
+                        'FIRST Set': [", ".join(sorted(first_sets.get(nt, []))) for nt in sorted(non_terminals)]
+                    })
+                    st.dataframe(first_df)
+                
+                with st.expander("FOLLOW Sets"):
+                    follow_df = pd.DataFrame({
+                        'Non-terminal': sorted(non_terminals),
+                        'FOLLOW Set': [", ".join(sorted(follow_sets.get(nt, []))) for nt in sorted(non_terminals)]
+                    })
+                    st.dataframe(follow_df)
             
-            st.subheader("FOLLOW Sets")
-            follow_df = pd.DataFrame({
-                'Non-terminal': sorted(parser.non_terminals),
-                'FOLLOW Set': [", ".join(sorted(parser.follow_sets.get(nt, []))) for nt in sorted(parser.non_terminals)]
-            })
-            st.dataframe(follow_df)
+            with tab2:
+                st.header("Productions")
+                for prod in get_productions(augmented_grammar):
+                    st.write(prod)
             
-            st.subheader("Productions")
-            for prod in parser.get_productions():
-                st.write(prod)
+            with tab3:
+                st.header("Canonical Collection of LR(0) Items")
+                for i, items in format_lr_items(canonical_collection):
+                    st.write(f"**State {i}:**")
+                    for item in items:
+                        st.write(f"- {item}")
             
-            st.subheader("Canonical Collection of LR(0) Items (in order of derivation)")
-            for i, items in parser.format_lr_items():
-                st.write(f"State {i}:")
-                for item in items:
-                    st.write(f"  {item}")
-                st.write("")
+            with tab4:
+                st.header("SLR Parsing Table")
+                parsing_table_df = format_parsing_table(parsing_table, canonical_collection, terminals, non_terminals)
+                st.dataframe(parsing_table_df)
             
-            st.subheader("SLR Parsing Table")
-            parsing_table_df = parser.format_parsing_table()
-            st.dataframe(parsing_table_df)
-            
-            st.header("Input Parsing Simulation")
-            input_string = st.text_input("Enter input string to parse (space-separated tokens):", value="id + id * id")
-            if st.button("Parse Input"):
-                actions, success = parser.parse_input(input_string)
-                st.subheader("Parsing Steps")
-                for i, action in enumerate(actions):
-                    st.write(f"{i+1}. {action}")
-                if success:
-                    st.success("Input string accepted!")
-                else:
-                    st.error("Input string rejected!")
         
         except Exception as e:
-            st.error(f"Error in parsing: {str(e)}")
+            st.error(f"Error: {str(e)}")
             import traceback
             st.code(traceback.format_exc())
 
