@@ -378,6 +378,7 @@ def format_lr_items(canonical_collection):
 
 def main():
     st.set_page_config(page_title="SLR Parser Generator", layout="wide")
+    st.markdown("[Source Code](https://github.com/singh-sudhir16/SLR-parse-table-generator)")
     st.title("SLR Parser Generator")
     
     # Sidebar for grammar input
@@ -402,7 +403,7 @@ F -> ( E ) | id
                                                      augmented_grammar, grammar, follow_sets, start_symbol)
             
             # Create tabs for organized display
-            tab1, tab2, tab3, tab4, tab5 = st.tabs(["Grammar Analysis", "Productions", "LR(0) Items", "Parsing Table", "Simulation"])
+            tab1, tab2, tab3, tab4 = st.tabs(["Grammar Analysis", "Productions", "LR(0) Items", "Parsing Table"])
             
             with tab1:
                 st.header("Grammar Analysis")
@@ -450,6 +451,9 @@ F -> ( E ) | id
             st.error(f"Error: {str(e)}")
             import traceback
             st.code(traceback.format_exc())
+import streamlit as st
+
+
 
 if __name__ == "__main__":
     main()
