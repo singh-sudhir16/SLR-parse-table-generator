@@ -68,7 +68,7 @@ streamlit run app.py
 ## 🌐 Deployment
 
 The app is deployed on **Streamlit Cloud** for public use.  
-📍 [Live Demo](https://your-deployed-streamlit-link)
+📍 [Live Demo](https://slr-parse-table-generator.streamlit.app/)
 
 ---
 
