@@ -1,41 +1,97 @@
-# SLR Parser Generator
+# 📘 SLR Parser Generator
 
-This project implements an SLR parser that takes a grammar as input, constructs the canonical collection of LR(0) items, builds the SLR parsing table, and simulates the parsing process. The graphical interface is built using [Streamlit](https://streamlit.io/), allowing users to easily enter grammars, view detailed parsing tables, and step through the parsing process.
+An interactive **SLR(1) parser generator** built with Python and Streamlit. This tool allows users to input a grammar, visualize the construction of LR(0) items, generate the SLR parsing table, and simulate parsing of strings. The entire process is made intuitive through a modern web-based GUI.
 
----
-
-##  Features
-
-- **Grammar Input & Augmentation**  
-  Enter grammar productions (using `#` for epsilon). The parser automatically augments the grammar by creating a new start symbol.
-
-- **FIRST & FOLLOW Set Calculation**  
-  Computes FIRST and FOLLOW sets for the grammar, essential for constructing the parsing table.
-
-- **Canonical Collection of LR(0) Items**  
-  Constructs and displays the collection of LR(0) items in the order they are derived.
-
-- **SLR Parsing Table Construction**  
-  Builds a complete SLR parsing table with shift, reduce, and accept actions. The table is formatted for easy viewing without any extra columns.
-
-- **Parsing Simulation**  
-  Simulate the parsing process of an input string step-by-step, with detailed logs showing shift-reduce actions.
-
-- **Streamlit GUI**  
-  A user-friendly interface to enter grammars, view analysis results (terminals, non-terminals, FIRST and FOLLOW sets), canonical LR(0) items, and parsing tables. It also allows for testing input strings against the constructed parser.
+> 🚀 [Try it live on Streamlit](https://your-deployed-streamlit-link)  
 
 ---
 
-##  How to Enter Grammar Input
+## 🎯 Features
 
-The grammar is entered **one production per line** in the following format:
+### 🔤 Grammar Input & Augmentation
+- Input grammar productions using a simple syntax.
+- Automatic augmentation of grammar by adding a new start symbol.
+- Supports `#` to represent **epsilon** (empty string).
 
-A -> c | d | A
+### 🧮 FIRST & FOLLOW Sets
+- Computes **FIRST** and **FOLLOW** sets for non-terminals.
+- Core building blocks for SLR table generation.
 
+### 📚 Canonical Collection of LR(0) Items
+- Generates and displays LR(0) items.
+- Clearly shows state transitions and derivations.
 
-### 🧾 Input Format Rules
+### 📋 SLR Parsing Table
+- Constructs the **SLR parsing table**:
+  - Shift (`s`), Reduce (`r`), and Accept (`acc`) actions.
+- Easy-to-read tabular format for analysis and debugging.
 
-- Use `->` (with spaces on both sides) to separate the LHS from RHS.
-- Use `|` (with spaces on both sides) to separate multiple productions.
-- Use **spaces between all terminals and non-terminals** (e.g., `E -> E + T`).
+### 🧪 Parsing Simulation
+- Step-by-step simulation of the parsing process.
+- Detailed logs show shift/reduce decisions at each step.
+
+### 🖥️ Streamlit Web Interface
+- Clean and interactive frontend using **Streamlit**.
+- Easily enter grammars, view all parsing components, and test strings.
+- No installations needed — runs directly in the browser!
+
+---
+
+## 🧾 Grammar Input Format
+
+- Each production should be on a **new line**.
+- Use `->` (with spaces) to separate LHS and RHS.
+- Use `|` (with spaces) for multiple alternatives.
+- Separate all terminals and non-terminals with spaces.
 - Use `#` to denote epsilon (empty string).
+
+**Example:**
+```
+E -> E + T | T  
+T -> T * F | F  
+F -> ( E ) | id  
+```
+
+---
+
+## 🛠️ Installation (Local Run)
+
+```bash
+git clone https://github.com/your-username/SLR-Parser-Frontend.git
+cd SLR-Parser-Frontend
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+---
+
+## 🌐 Deployment
+
+The app is deployed on **Streamlit Cloud** for public use.  
+📍 [Live Demo](https://your-deployed-streamlit-link)
+
+---
+
+## 📂 Project Structure
+
+```
+├── app.py                 # Streamlit frontend
+├── parser_engine.py       # Core SLR parser logic
+├── utils.py               # Utility functions
+├── requirements.txt       # Python dependencies
+└── README.md              # Project documentation
+```
+
+---
+
+## 👨‍💻 Author
+- Shahid Sheikh
+- Sudhir Singh
+- Manas Bhardwaj
+
+**Shahid Sheikh**  
+📫 Feel free to connect or contribute!
+
+---
+
+Let me know if you want this customized with your GitHub repo link, Streamlit app URL, or a logo badge!
