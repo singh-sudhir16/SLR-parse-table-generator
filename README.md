@@ -2,7 +2,7 @@
 
 An interactive **SLR(1) parser generator** built with Python and Streamlit. This tool allows users to input a grammar, visualize the construction of LR(0) items, generate the SLR parsing table, and simulate parsing of strings. The entire process is made intuitive through a modern web-based GUI.
 
-> 🚀 [Try it live on Streamlit](https://your-deployed-streamlit-link)  
+> 🚀 [Try it live on Streamlit](https://slr-parse-table-generator.streamlit.app/)  
 
 ---
 
@@ -57,8 +57,8 @@ F -> ( E ) | id
 ## 🛠️ Installation (Local Run)
 
 ```bash
-git clone https://github.com/your-username/SLR-Parser-Frontend.git
-cd SLR-Parser-Frontend
+git clone https://github.com/singh-sudhir16/SLR-parse-table-generator
+cd SLR-parse-table-generator
 pip install -r requirements.txt
 streamlit run app.py
 ```
