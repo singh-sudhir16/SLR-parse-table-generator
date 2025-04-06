@@ -1,6 +1,235 @@
 import streamlit as st
 import pandas as pd
 from collections import defaultdict, deque
+import base64
+from streamlit_lottie import st_lottie
+import requests
+import json
+
+# Add custom CSS for better styling
+def add_custom_css():
+    st.markdown("""
+    <style>
+    /* Define color scheme that works for both light and dark themes */
+    :root {
+        --primary-color: #6200EA;
+        --primary-color-hover: #5000d0;
+        --background-color: rgba(255, 255, 255, 0.05);
+        --card-background: rgba(255, 255, 255, 0.1);
+        --text-color: inherit;
+        --border-color: rgba(120, 120, 120, 0.2);
+        --shadow-color: rgba(0, 0, 0, 0.1);
+        --highlight-background: rgba(98, 0, 234, 0.1);
+        --success-color: #4CAF50;
+        --error-color: #F44336;
+        --info-color: #2196F3;
+        --warning-color: #FFC107;
+        --link-color: #FFD54F;
+    }
+    
+    /* Light/dark mode compatible styles */
+    .main {
+        background-color: var(--background-color);
+    }
+    .stApp {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    /* Fix for links on colored backgrounds */
+    .header-container a, .sidebar-header a, [style*="background-color: var(--primary-color)"] a,
+    .download-btn, .card a, .success-box a, .info-box a, .warning-box a, .error-box a {
+        color: var(--link-color) !important;
+        font-weight: bold;
+        text-decoration: underline;
+    }
+    .header-container a:hover, .sidebar-header a:hover, [style*="background-color: var(--primary-color)"] a:hover,
+    .download-btn:hover, .card a:hover {
+        color: white !important;
+        text-decoration: none;
+    }
+    .stButton>button {
+        background-color: var(--primary-color);
+        color: white;
+        border-radius: 8px;
+        padding: 0.6rem 1.2rem;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        border: none;
+        box-shadow: 0 2px 5px var(--shadow-color);
+    }
+    .stButton>button:hover {
+        background-color: var(--primary-color-hover);
+        box-shadow: 0 4px 8px var(--shadow-color);
+        transform: translateY(-2px);
+    }
+    .stTextArea>div>div>textarea {
+        font-family: 'Courier New', monospace;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        padding: 10px;
+        background-color: var(--background-color);
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+        background-color: var(--background-color);
+        padding: 10px;
+        border-radius: 10px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        padding: 1rem 2rem;
+        font-weight: bold;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: var(--primary-color);
+        color: white;
+        box-shadow: 0 2px 5px var(--shadow-color);
+    }
+    .stDataFrame {
+        border-radius: 8px;
+        box-shadow: 0 2px 8px var(--shadow-color);
+        overflow: hidden;
+    }
+    .stExpander {
+        background-color: var(--card-background);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 5px var(--shadow-color);
+        border: 1px solid var(--border-color);
+    }
+    .card {
+        background-color: var(--card-background);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 10px var(--shadow-color);
+        border: 1px solid var(--border-color);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px var(--shadow-color);
+    }
+    .header-container {
+        background: linear-gradient(90deg, var(--primary-color) 0%, rgba(179, 136, 255, 0.8) 100%);
+        padding: 2rem;
+        border-radius: 10px;
+        color: white;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 12px rgba(98, 0, 234, 0.2);
+    }
+    .sidebar-header {
+        background: linear-gradient(90deg, var(--primary-color) 0%, rgba(179, 136, 255, 0.8) 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 12px rgba(98, 0, 234, 0.2);
+    }
+    .info-box {
+        background-color: rgba(33, 150, 243, 0.1);
+        border-left: 5px solid var(--info-color);
+        padding: 1rem;
+        border-radius: 5px;
+        margin-bottom: 1rem;
+    }
+    .success-box {
+        background-color: rgba(76, 175, 80, 0.1);
+        border-left: 5px solid var(--success-color);
+        padding: 1rem;
+        border-radius: 5px;
+        margin-bottom: 1rem;
+    }
+    .warning-box {
+        background-color: rgba(255, 193, 7, 0.1);
+        border-left: 5px solid var(--warning-color);
+        padding: 1rem;
+        border-radius: 5px;
+        margin-bottom: 1rem;
+    }
+    .error-box {
+        background-color: rgba(244, 67, 54, 0.1);
+        border-left: 5px solid var(--error-color);
+        padding: 1rem;
+        border-radius: 5px;
+        margin-bottom: 1rem;
+    }
+    .download-btn {
+        display: inline-block;
+        background-color: var(--primary-color);
+        color: white !important;
+        padding: 0.6rem 1.2rem;
+        text-decoration: none !important;
+        border-radius: 8px;
+        font-weight: bold;
+        margin-top: 1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 5px var(--shadow-color);
+        border: 2px solid #FFD54F;
+    }
+    .download-btn:hover {
+        background-color: var(--primary-color-hover);
+        box-shadow: 0 4px 8px var(--shadow-color);
+        transform: translateY(-2px);
+        border-color: white;
+    }
+    /* Token badges */
+    .token-badge {
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-weight: bold;
+        display: inline-block;
+        margin: 3px;
+    }
+    .terminal {
+        background-color: rgba(98, 0, 234, 0.1);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        padding: 10px;
+        border-radius: 8px;
+        font-family: 'Courier New', monospace;
+    }
+    /* Add specific light/dark mode styles */
+    @media (prefers-color-scheme: dark) {
+        .token-badge.terminal {
+            background-color: rgba(98, 0, 234, 0.3);
+            color: white;
+        }
+        .token-badge.non-terminal {
+            background-color: rgba(179, 136, 255, 0.3);
+            color: white;
+        }
+        .card h3, .expander h3, h2, h4 {
+            color: #B388FF !important;
+        }
+        .item-row {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+    }
+    @media (prefers-color-scheme: light) {
+        .token-badge.terminal {
+            background-color: #E3F2FD;
+            color: #1976D2;
+        }
+        .token-badge.non-terminal {
+            background-color: #F3E5F5;
+            color: #7B1FA2;
+        }
+        .item-row {
+            background-color: #F5F5F5 !important;
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Load Lottie animation
+def load_lottieurl(url):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
 
 # --------------------------
 # Grammar Parsing and Processing
@@ -377,21 +606,72 @@ def format_lr_items(canonical_collection):
 # --------------------------
 
 def main():
-    st.set_page_config(page_title="SLR Parser Generator", layout="wide")
-    st.markdown("[Source Code](https://github.com/singh-sudhir16/SLR-parse-table-generator)")
-    st.title("SLR Parser Generator")
+    st.set_page_config(
+        page_title="SLR Parser Generator",
+        page_icon="🔍",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
     
-    # Sidebar for grammar input
-    st.sidebar.header("Grammar Input")
-    example_grammar = """
+    add_custom_css()
+    
+    # Load Lottie animation
+    lottie_coding = load_lottieurl('https://assets5.lottiefiles.com/packages/lf20_fcfjwiyb.json')
+    
+    # Header with improved styling
+    st.markdown("""
+    <div class="header-container">
+        <h1 style="margin-top: 0;">SLR Parser Generator</h1>
+        <p style="font-size: 1.2rem; opacity: 0.9;">
+            A powerful tool for generating SLR parsing tables and analyzing context-free grammars
+        </p>
+        <p><a href="https://github.com/singh-sudhir16/SLR-parse-table-generator" target="_blank">View Source Code</a></p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Sidebar with improved styling
+    with st.sidebar:
+        st.markdown("""
+        <div class="sidebar-header">
+            <h2 style="margin: 0;">Grammar Input</h2>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Add Lottie animation
+        st_lottie(lottie_coding, height=200, key="coding")
+        
+        example_grammar = """
 E -> E + T | T
 T -> T * F | F
 F -> ( E ) | id
-    """
-    grammar_input = st.sidebar.text_area("Enter grammar (one production per line, use '#' for epsilon):", 
-                                           value=example_grammar, height=200)
+        """
+        grammar_input = st.text_area(
+            "Enter your grammar (one production per line, use '#' for epsilon):",
+            value=example_grammar,
+            height=200,
+            help="Example format: A -> B C | D"
+        )
+        
+        st.markdown("""
+        <div class="info-box">
+            <h4 style="margin-top: 0;">Tips</h4>
+            <ul>
+                <li>Use '#' to represent epsilon (empty string)</li>
+                <li>The first non-terminal is considered the start symbol</li>
+                <li>Separate symbols with spaces</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Generate Parser", key="generate_btn", use_container_width=True):
+                st.session_state.generate_clicked = True
+        with col2:
+            if st.button("Clear", key="clear_btn", use_container_width=True):
+                st.session_state.generate_clicked = False
     
-    if st.sidebar.button("Generate Parser"):
+    if st.session_state.get('generate_clicked', False):
         try:
             # Processing
             grammar = parse_grammar(grammar_input)
@@ -400,60 +680,281 @@ F -> ( E ) | id
             follow_sets = compute_follow_sets(grammar, non_terminals, start_symbol, first_sets)
             canonical_collection, goto_table = build_canonical_collection(grammar, non_terminals, start_symbol)
             parsing_table = construct_parsing_table(canonical_collection, goto_table, terminals, non_terminals, 
-                                                     augmented_grammar, grammar, follow_sets, start_symbol)
+                                                 augmented_grammar, grammar, follow_sets, start_symbol)
             
-            # Create tabs for organized display
-            tab1, tab2, tab3, tab4 = st.tabs(["Grammar Analysis", "Productions", "LR(0) Items", "Parsing Table"])
+            # Success message
+            st.markdown("""
+            <div class="success-box">
+                <h3 style="margin-top: 0;">✅ Parser Generated Successfully</h3>
+                <p>Your SLR parser has been generated. Explore the results in the tabs below.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Create tabs with improved styling
+            tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Grammar Analysis", "📝 Productions", "🔍 LR(0) Items", "📋 Parsing Table", "🧪 Test Parser"])
             
             with tab1:
-                st.header("Grammar Analysis")
+                st.markdown("""
+                <h2 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">Grammar Analysis</h2>
+                """, unsafe_allow_html=True)
+                
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.subheader("Terminals")
-                    st.write(", ".join(sorted(terminals)))
-                with col2:
-                    st.subheader("Non-terminals")
-                    st.write(", ".join(sorted(non_terminals)))
+                    st.markdown("""
+                    <div class="card">
+                        <h3 style="margin-top: 0;">Terminals</h3>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
+                    """, unsafe_allow_html=True)
+                    
+                    for terminal in sorted(terminals):
+                        st.markdown(f"""
+                        <span class="token-badge terminal">{terminal}</span>
+                        """, unsafe_allow_html=True)
+                    
+                    st.markdown("</div></div>", unsafe_allow_html=True)
                 
-                with st.expander("FIRST Sets"):
+                with col2:
+                    st.markdown("""
+                    <div class="card">
+                        <h3 style="margin-top: 0;">Non-terminals</h3>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
+                    """, unsafe_allow_html=True)
+                    
+                    for nt in sorted(non_terminals):
+                        st.markdown(f"""
+                        <span class="token-badge non-terminal">{nt}</span>
+                        """, unsafe_allow_html=True)
+                    
+                    st.markdown("</div></div>", unsafe_allow_html=True)
+                
+                with st.expander("FIRST Sets", expanded=True):
                     first_df = pd.DataFrame({
                         'Non-terminal': sorted(non_terminals),
                         'FIRST Set': [", ".join(sorted(first_sets.get(nt, []))) for nt in sorted(non_terminals)]
                     })
-                    st.dataframe(first_df)
+                    
+                    st.markdown("""
+                    <div class="card">
+                        <h3 style="color: #6200EA; margin-top: 0;">FIRST Sets Table</h3>
+                    """, unsafe_allow_html=True)
+                    st.dataframe(first_df, use_container_width=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
                 
-                with st.expander("FOLLOW Sets"):
+                with st.expander("FOLLOW Sets", expanded=True):
                     follow_df = pd.DataFrame({
                         'Non-terminal': sorted(non_terminals),
                         'FOLLOW Set': [", ".join(sorted(follow_sets.get(nt, []))) for nt in sorted(non_terminals)]
                     })
-                    st.dataframe(follow_df)
+                    
+                    st.markdown("""
+                    <div class="card">
+                        <h3 style="color: #6200EA; margin-top: 0;">FOLLOW Sets Table</h3>
+                    """, unsafe_allow_html=True)
+                    st.dataframe(follow_df, use_container_width=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
             
             with tab2:
-                st.header("Productions")
+                st.markdown("""
+                <h2 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">Productions</h2>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("""
+                <div class="card">
+                    <h3 style="margin-top: 0;">Grammar Productions</h3>
+                    <div style="margin-top: 15px;">
+                """, unsafe_allow_html=True)
+                
                 for prod in get_productions(augmented_grammar):
-                    st.write(prod)
+                    st.markdown(f"""
+                    <div class="item-row" style="display: flex; align-items: center; margin-bottom: 10px; 
+                    padding: 10px; border-radius: 8px;">
+                        <div style="background-color: var(--primary-color); color: white; width: 30px; height: 30px; 
+                        border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+                        margin-right: 15px;">📌</div>
+                        <div class="terminal" style="font-family: 'Courier New', monospace; font-size: 16px;">{prod}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("</div></div>", unsafe_allow_html=True)
             
             with tab3:
-                st.header("Canonical Collection of LR(0) Items")
-                for i, items in format_lr_items(canonical_collection):
-                    st.write(f"**State {i}:**")
-                    for item in items:
-                        st.write(f"- {item}")
+                st.markdown("""
+                <h2 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">Canonical Collection of LR(0) Items</h2>
+                """, unsafe_allow_html=True)
+                
+                # Create a vertical layout for states instead of a grid
+                formatted_items = format_lr_items(canonical_collection)
+                
+                for i, items in formatted_items:
+                    st.markdown(f"""
+                    <div class="card">
+                        <h3 style="margin-top: 0; display: flex; align-items: center;">
+                            <span style="background-color: var(--primary-color); color: white; width: 40px; height: 40px; 
+                            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+                            margin-right: 10px; font-size: 1.2rem;">I{i}</span>
+                            State {i}
+                        </h3>
+                    """, unsafe_allow_html=True)
+                    
+                    if items:  # Only display the container if there are items
+                        st.markdown("""
+                        <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+                        """, unsafe_allow_html=True)
+                        
+                        for item in items:
+                            st.markdown(f"""
+                            <div class="terminal" style="font-family: 'Courier New', monospace;
+                            display: flex; align-items: center; padding: 10px; border-radius: 6px;">
+                                <span style="color: var(--primary-color); margin-right: 10px; font-weight: bold; font-size: 18px;">•</span>
+                                <span style="font-size: 16px;">{item}</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    else:
+                        # Display a message if there are no items
+                        st.markdown("""
+                        <div style="margin-top: 15px; padding: 12px; background-color: rgba(98, 0, 234, 0.05); 
+                        border-radius: 6px; text-align: center; font-style: italic; color: #666;">
+                            No items in this state
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
             
             with tab4:
-                st.header("SLR Parsing Table")
+                st.markdown("""
+                <h2 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">SLR Parsing Table</h2>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("""
+                <div class="card">
+                    <h3 style="margin-top: 0;">Parsing Table</h3>
+                    <p>The table below shows the actions and goto functions for each state.</p>
+                """, unsafe_allow_html=True)
+                
                 parsing_table_df = format_parsing_table(parsing_table, canonical_collection, terminals, non_terminals)
-                st.dataframe(parsing_table_df)
+                st.dataframe(parsing_table_df, use_container_width=True)
+                
+                # Add download button for the parsing table
+                csv = parsing_table_df.to_csv(index=True)
+                b64 = base64.b64encode(csv.encode()).decode()
+                href = f'<a href="data:file/csv;base64,{b64}" download="parsing_table.csv" class="download-btn">📥 Download Parsing Table</a>'
+                st.markdown(href, unsafe_allow_html=True)
+                
+                st.markdown("""
+                <div style="margin-top: 20px;">
+                    <h4>Legend:</h4>
+                    <ul>
+                        <li><strong>sN</strong>: Shift and go to state N</li>
+                        <li><strong>rN</strong>: Reduce using production N</li>
+                        <li><strong>acc</strong>: Accept the input</li>
+                        <li><strong>N</strong> (in goto section): Go to state N</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
             
+            with tab5:
+                st.markdown("""
+                <h2 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">Test Your Parser</h2>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("""
+                <div class="card">
+                    <h3 style="margin-top: 0;">Input String</h3>
+                    <p>Enter a string to parse using your generated SLR parser.</p>
+                """, unsafe_allow_html=True)
+                
+                test_input = st.text_input("Enter input string (space-separated tokens):", 
+                                          value="id + id * id", 
+                                          help="Example: id + id * id")
+                
+                if st.button("Parse Input", key="parse_btn"):
+                    if test_input:
+                        actions, success = parse_input(test_input, parsing_table, augmented_grammar, canonical_collection)
+                        
+                        if success:
+                            st.markdown("""
+                            <div class="success-box">
+                                <h3 style="margin-top: 0;">✅ Parsing Successful</h3>
+                                <p>The input string was successfully parsed!</p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        else:
+                            st.markdown("""
+                            <div class="error-box">
+                                <h3 style="margin-top: 0;">❌ Parsing Failed</h3>
+                                <p>The input string could not be parsed. See details below.</p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                        st.markdown("""
+                        <div style="margin-top: 20px;">
+                            <h4 style="color: #6200EA;">Parsing Steps:</h4>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        for i, action in enumerate(actions):
+                            if "Error" in action:
+                                st.markdown(f"""
+                                <div class="error-box" style="padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+                                    <strong>Step {i+1}:</strong> {action}
+                                </div>
+                                """, unsafe_allow_html=True)
+                            elif "Accept" in action:
+                                st.markdown(f"""
+                                <div class="success-box" style="padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+                                    <strong>Step {i+1}:</strong> {action}
+                                </div>
+                                """, unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"""
+                                <div class="terminal" style="padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+                                    <strong>Step {i+1}:</strong> {action}
+                                </div>
+                                """, unsafe_allow_html=True)
+                    else:
+                        st.warning("Please enter an input string to parse.")
+                
+                st.markdown("</div>", unsafe_allow_html=True)
         
         except Exception as e:
+            st.markdown("""
+            <div class="error-box">
+                <h3 style="margin-top: 0;">❌ Error</h3>
+                <p>An error occurred while generating the parser.</p>
+            </div>
+            """, unsafe_allow_html=True)
             st.error(f"Error: {str(e)}")
             import traceback
-            st.code(traceback.format_exc())
-import streamlit as st
-
-
+            with st.expander("Show Error Details"):
+                st.code(traceback.format_exc())
+    else:
+        # Welcome message when no parser is generated yet
+        st.markdown("""
+        <div class="card">
+            <h2 style="margin-top: 0;">Welcome to the SLR Parser Generator</h2>
+            <p style="font-size: 1.1rem;">
+                This tool helps you analyze context-free grammars and generate SLR parsing tables.
+            </p>
+            <h3>Getting Started</h3>
+            <ol>
+                <li>Enter your grammar in the sidebar</li>
+                <li>Click "Generate Parser" to analyze your grammar</li>
+                <li>Explore the results in the different tabs</li>
+                <li>Test your parser with sample input strings</li>
+            </ol>
+            <div class="info-box">
+                <h4 style="margin-top: 0;">What is SLR Parsing?</h4>
+                <p>
+                    Simple LR (SLR) parsing is a bottom-up parsing technique used for context-free grammars.
+                    It builds a parsing table based on the FIRST and FOLLOW sets of the grammar.
+                </p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
