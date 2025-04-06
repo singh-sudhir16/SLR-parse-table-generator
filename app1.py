@@ -10,38 +10,68 @@ import json
 def add_custom_css():
     st.markdown("""
     <style>
+    /* Define color scheme that works for both light and dark themes */
+    :root {
+        --primary-color: #6200EA;
+        --primary-color-hover: #5000d0;
+        --background-color: rgba(255, 255, 255, 0.05);
+        --card-background: rgba(255, 255, 255, 0.1);
+        --text-color: inherit;
+        --border-color: rgba(120, 120, 120, 0.2);
+        --shadow-color: rgba(0, 0, 0, 0.1);
+        --highlight-background: rgba(98, 0, 234, 0.1);
+        --success-color: #4CAF50;
+        --error-color: #F44336;
+        --info-color: #2196F3;
+        --warning-color: #FFC107;
+        --link-color: #FFD54F;
+    }
+    
+    /* Light/dark mode compatible styles */
     .main {
-        background-color: #f8f9fa;
+        background-color: var(--background-color);
     }
     .stApp {
         max-width: 1200px;
         margin: 0 auto;
     }
+    /* Fix for links on colored backgrounds */
+    .header-container a, .sidebar-header a, [style*="background-color: var(--primary-color)"] a,
+    .download-btn, .card a, .success-box a, .info-box a, .warning-box a, .error-box a {
+        color: var(--link-color) !important;
+        font-weight: bold;
+        text-decoration: underline;
+    }
+    .header-container a:hover, .sidebar-header a:hover, [style*="background-color: var(--primary-color)"] a:hover,
+    .download-btn:hover, .card a:hover {
+        color: white !important;
+        text-decoration: none;
+    }
     .stButton>button {
-        background-color: #6200EA;
+        background-color: var(--primary-color);
         color: white;
         border-radius: 8px;
         padding: 0.6rem 1.2rem;
         font-weight: bold;
         transition: all 0.3s ease;
         border: none;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 5px var(--shadow-color);
     }
     .stButton>button:hover {
-        background-color: #5000d0;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        background-color: var(--primary-color-hover);
+        box-shadow: 0 4px 8px var(--shadow-color);
         transform: translateY(-2px);
     }
     .stTextArea>div>div>textarea {
         font-family: 'Courier New', monospace;
         border-radius: 8px;
-        border: 1px solid #ddd;
+        border: 1px solid var(--border-color);
         padding: 10px;
-        background-color: #f9f9f9;
+        background-color: var(--background-color);
     }
     .stTabs [data-baseweb="tab-list"] {
         gap: 2rem;
-        background-color: #f1f3f9;
+        background-color: var(--background-color);
         padding: 10px;
         border-radius: 10px;
     }
@@ -52,38 +82,38 @@ def add_custom_css():
         transition: all 0.2s ease;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #6200EA;
+        background-color: var(--primary-color);
         color: white;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 5px var(--shadow-color);
     }
     .stDataFrame {
         border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 8px var(--shadow-color);
         overflow: hidden;
     }
     .stExpander {
-        background-color: white;
+        background-color: var(--card-background);
         border-radius: 8px;
         padding: 1rem;
         margin-bottom: 1rem;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        border: 1px solid #eee;
+        box-shadow: 0 2px 5px var(--shadow-color);
+        border: 1px solid var(--border-color);
     }
     .card {
-        background-color: white;
+        background-color: var(--card-background);
         border-radius: 8px;
         padding: 1.5rem;
         margin-bottom: 1rem;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-        border: 1px solid #eee;
+        box-shadow: 0 2px 10px var(--shadow-color);
+        border: 1px solid var(--border-color);
         transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
     .card:hover {
         transform: translateY(-3px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 5px 15px var(--shadow-color);
     }
     .header-container {
-        background: linear-gradient(90deg, #6200EA 0%, #B388FF 100%);
+        background: linear-gradient(90deg, var(--primary-color) 0%, rgba(179, 136, 255, 0.8) 100%);
         padding: 2rem;
         border-radius: 10px;
         color: white;
@@ -91,7 +121,7 @@ def add_custom_css():
         box-shadow: 0 4px 12px rgba(98, 0, 234, 0.2);
     }
     .sidebar-header {
-        background: linear-gradient(90deg, #6200EA 0%, #B388FF 100%);
+        background: linear-gradient(90deg, var(--primary-color) 0%, rgba(179, 136, 255, 0.8) 100%);
         color: white;
         padding: 1.5rem;
         border-radius: 8px;
@@ -99,49 +129,97 @@ def add_custom_css():
         box-shadow: 0 4px 12px rgba(98, 0, 234, 0.2);
     }
     .info-box {
-        background-color: #E3F2FD;
-        border-left: 5px solid #2196F3;
+        background-color: rgba(33, 150, 243, 0.1);
+        border-left: 5px solid var(--info-color);
         padding: 1rem;
         border-radius: 5px;
         margin-bottom: 1rem;
     }
     .success-box {
-        background-color: #E8F5E9;
-        border-left: 5px solid #4CAF50;
+        background-color: rgba(76, 175, 80, 0.1);
+        border-left: 5px solid var(--success-color);
         padding: 1rem;
         border-radius: 5px;
         margin-bottom: 1rem;
     }
     .warning-box {
-        background-color: #FFF8E1;
-        border-left: 5px solid #FFC107;
+        background-color: rgba(255, 193, 7, 0.1);
+        border-left: 5px solid var(--warning-color);
         padding: 1rem;
         border-radius: 5px;
         margin-bottom: 1rem;
     }
     .error-box {
-        background-color: #FFEBEE;
-        border-left: 5px solid #F44336;
+        background-color: rgba(244, 67, 54, 0.1);
+        border-left: 5px solid var(--error-color);
         padding: 1rem;
         border-radius: 5px;
         margin-bottom: 1rem;
     }
     .download-btn {
         display: inline-block;
-        background-color: #6200EA;
-        color: white;
+        background-color: var(--primary-color);
+        color: white !important;
         padding: 0.6rem 1.2rem;
-        text-decoration: none;
+        text-decoration: none !important;
         border-radius: 8px;
         font-weight: bold;
         margin-top: 1rem;
         transition: all 0.3s ease;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 5px var(--shadow-color);
+        border: 2px solid #FFD54F;
     }
     .download-btn:hover {
-        background-color: #5000d0;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        background-color: var(--primary-color-hover);
+        box-shadow: 0 4px 8px var(--shadow-color);
         transform: translateY(-2px);
+        border-color: white;
+    }
+    /* Token badges */
+    .token-badge {
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-weight: bold;
+        display: inline-block;
+        margin: 3px;
+    }
+    .terminal {
+        background-color: rgba(98, 0, 234, 0.1);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        padding: 10px;
+        border-radius: 8px;
+        font-family: 'Courier New', monospace;
+    }
+    /* Add specific light/dark mode styles */
+    @media (prefers-color-scheme: dark) {
+        .token-badge.terminal {
+            background-color: rgba(98, 0, 234, 0.3);
+            color: white;
+        }
+        .token-badge.non-terminal {
+            background-color: rgba(179, 136, 255, 0.3);
+            color: white;
+        }
+        .card h3, .expander h3, h2, h4 {
+            color: #B388FF !important;
+        }
+        .item-row {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+    }
+    @media (prefers-color-scheme: light) {
+        .token-badge.terminal {
+            background-color: #E3F2FD;
+            color: #1976D2;
+        }
+        .token-badge.non-terminal {
+            background-color: #F3E5F5;
+            color: #7B1FA2;
+        }
+        .item-row {
+            background-color: #F5F5F5 !important;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -547,6 +625,7 @@ def main():
         <p style="font-size: 1.2rem; opacity: 0.9;">
             A powerful tool for generating SLR parsing tables and analyzing context-free grammars
         </p>
+        <p><a href="https://github.com/singh-sudhir16/SLR-parse-table-generator" target="_blank">View Source Code</a></p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -616,21 +695,20 @@ F -> ( E ) | id
             
             with tab1:
                 st.markdown("""
-                <h2 style="color: #6200EA; border-bottom: 2px solid #6200EA; padding-bottom: 8px;">Grammar Analysis</h2>
+                <h2 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">Grammar Analysis</h2>
                 """, unsafe_allow_html=True)
                 
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown("""
                     <div class="card">
-                        <h3 style="color: #6200EA; margin-top: 0;">Terminals</h3>
+                        <h3 style="margin-top: 0;">Terminals</h3>
                         <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
                     """, unsafe_allow_html=True)
                     
                     for terminal in sorted(terminals):
                         st.markdown(f"""
-                        <span style="background-color: #E3F2FD; color: #1976D2; padding: 5px 10px; 
-                        border-radius: 20px; font-weight: bold;">{terminal}</span>
+                        <span class="token-badge terminal">{terminal}</span>
                         """, unsafe_allow_html=True)
                     
                     st.markdown("</div></div>", unsafe_allow_html=True)
@@ -638,14 +716,13 @@ F -> ( E ) | id
                 with col2:
                     st.markdown("""
                     <div class="card">
-                        <h3 style="color: #6200EA; margin-top: 0;">Non-terminals</h3>
+                        <h3 style="margin-top: 0;">Non-terminals</h3>
                         <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
                     """, unsafe_allow_html=True)
                     
                     for nt in sorted(non_terminals):
                         st.markdown(f"""
-                        <span style="background-color: #F3E5F5; color: #7B1FA2; padding: 5px 10px; 
-                        border-radius: 20px; font-weight: bold;">{nt}</span>
+                        <span class="token-badge non-terminal">{nt}</span>
                         """, unsafe_allow_html=True)
                     
                     st.markdown("</div></div>", unsafe_allow_html=True)
@@ -678,23 +755,23 @@ F -> ( E ) | id
             
             with tab2:
                 st.markdown("""
-                <h2 style="color: #6200EA; border-bottom: 2px solid #6200EA; padding-bottom: 8px;">Productions</h2>
+                <h2 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">Productions</h2>
                 """, unsafe_allow_html=True)
                 
                 st.markdown("""
                 <div class="card">
-                    <h3 style="color: #6200EA; margin-top: 0;">Grammar Productions</h3>
+                    <h3 style="margin-top: 0;">Grammar Productions</h3>
                     <div style="margin-top: 15px;">
                 """, unsafe_allow_html=True)
                 
                 for prod in get_productions(augmented_grammar):
                     st.markdown(f"""
-                    <div style="display: flex; align-items: center; margin-bottom: 10px; 
-                    background-color: #F5F5F5; padding: 10px; border-radius: 8px;">
-                        <div style="background-color: #6200EA; color: white; width: 30px; height: 30px; 
+                    <div class="item-row" style="display: flex; align-items: center; margin-bottom: 10px; 
+                    padding: 10px; border-radius: 8px;">
+                        <div style="background-color: var(--primary-color); color: white; width: 30px; height: 30px; 
                         border-radius: 50%; display: flex; align-items: center; justify-content: center; 
                         margin-right: 15px;">📌</div>
-                        <div style="font-family: 'Courier New', monospace; font-size: 16px;">{prod}</div>
+                        <div class="terminal" style="font-family: 'Courier New', monospace; font-size: 16px;">{prod}</div>
                     </div>
                     """, unsafe_allow_html=True)
                 
@@ -702,45 +779,57 @@ F -> ( E ) | id
             
             with tab3:
                 st.markdown("""
-                <h2 style="color: #6200EA; border-bottom: 2px solid #6200EA; padding-bottom: 8px;">Canonical Collection of LR(0) Items</h2>
+                <h2 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">Canonical Collection of LR(0) Items</h2>
                 """, unsafe_allow_html=True)
                 
-                # Create a grid layout for states
-                cols = st.columns(2)
+                # Create a vertical layout for states instead of a grid
                 formatted_items = format_lr_items(canonical_collection)
                 
-                for idx, (i, items) in enumerate(formatted_items):
-                    with cols[idx % 2]:
-                        st.markdown(f"""
-                        <div class="card">
-                            <h3 style="color: #6200EA; margin-top: 0; display: flex; align-items: center;">
-                                <span style="background-color: #6200EA; color: white; width: 30px; height: 30px; 
-                                border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-                                margin-right: 10px;">I{i}</span>
-                                State {i}
-                            </h3>
-                            <div style="margin-top: 15px; background-color: #F5F5F5; padding: 15px; border-radius: 8px;">
+                for i, items in formatted_items:
+                    st.markdown(f"""
+                    <div class="card">
+                        <h3 style="margin-top: 0; display: flex; align-items: center;">
+                            <span style="background-color: var(--primary-color); color: white; width: 40px; height: 40px; 
+                            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+                            margin-right: 10px; font-size: 1.2rem;">I{i}</span>
+                            State {i}
+                        </h3>
+                    """, unsafe_allow_html=True)
+                    
+                    if items:  # Only display the container if there are items
+                        st.markdown("""
+                        <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
                         """, unsafe_allow_html=True)
                         
                         for item in items:
                             st.markdown(f"""
-                            <div style="font-family: 'Courier New', monospace; margin-bottom: 8px; 
-                            display: flex; align-items: center;">
-                                <span style="color: #6200EA; margin-right: 10px;">•</span>
-                                {item}
+                            <div class="terminal" style="font-family: 'Courier New', monospace;
+                            display: flex; align-items: center; padding: 10px; border-radius: 6px;">
+                                <span style="color: var(--primary-color); margin-right: 10px; font-weight: bold; font-size: 18px;">•</span>
+                                <span style="font-size: 16px;">{item}</span>
                             </div>
                             """, unsafe_allow_html=True)
                         
-                        st.markdown("</div></div>", unsafe_allow_html=True)
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    else:
+                        # Display a message if there are no items
+                        st.markdown("""
+                        <div style="margin-top: 15px; padding: 12px; background-color: rgba(98, 0, 234, 0.05); 
+                        border-radius: 6px; text-align: center; font-style: italic; color: #666;">
+                            No items in this state
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
             
             with tab4:
                 st.markdown("""
-                <h2 style="color: #6200EA; border-bottom: 2px solid #6200EA; padding-bottom: 8px;">SLR Parsing Table</h2>
+                <h2 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">SLR Parsing Table</h2>
                 """, unsafe_allow_html=True)
                 
                 st.markdown("""
                 <div class="card">
-                    <h3 style="color: #6200EA; margin-top: 0;">Parsing Table</h3>
+                    <h3 style="margin-top: 0;">Parsing Table</h3>
                     <p>The table below shows the actions and goto functions for each state.</p>
                 """, unsafe_allow_html=True)
                 
@@ -755,7 +844,7 @@ F -> ( E ) | id
                 
                 st.markdown("""
                 <div style="margin-top: 20px;">
-                    <h4 style="color: #6200EA;">Legend:</h4>
+                    <h4>Legend:</h4>
                     <ul>
                         <li><strong>sN</strong>: Shift and go to state N</li>
                         <li><strong>rN</strong>: Reduce using production N</li>
@@ -769,12 +858,12 @@ F -> ( E ) | id
             
             with tab5:
                 st.markdown("""
-                <h2 style="color: #6200EA; border-bottom: 2px solid #6200EA; padding-bottom: 8px;">Test Your Parser</h2>
+                <h2 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">Test Your Parser</h2>
                 """, unsafe_allow_html=True)
                 
                 st.markdown("""
                 <div class="card">
-                    <h3 style="color: #6200EA; margin-top: 0;">Input String</h3>
+                    <h3 style="margin-top: 0;">Input String</h3>
                     <p>Enter a string to parse using your generated SLR parser.</p>
                 """, unsafe_allow_html=True)
                 
@@ -810,19 +899,19 @@ F -> ( E ) | id
                         for i, action in enumerate(actions):
                             if "Error" in action:
                                 st.markdown(f"""
-                                <div style="background-color: #FFEBEE; padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+                                <div class="error-box" style="padding: 10px; border-radius: 8px; margin-bottom: 8px;">
                                     <strong>Step {i+1}:</strong> {action}
                                 </div>
                                 """, unsafe_allow_html=True)
                             elif "Accept" in action:
                                 st.markdown(f"""
-                                <div style="background-color: #E8F5E9; padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+                                <div class="success-box" style="padding: 10px; border-radius: 8px; margin-bottom: 8px;">
                                     <strong>Step {i+1}:</strong> {action}
                                 </div>
                                 """, unsafe_allow_html=True)
                             else:
                                 st.markdown(f"""
-                                <div style="background-color: #F5F5F5; padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+                                <div class="terminal" style="padding: 10px; border-radius: 8px; margin-bottom: 8px;">
                                     <strong>Step {i+1}:</strong> {action}
                                 </div>
                                 """, unsafe_allow_html=True)
@@ -846,11 +935,11 @@ F -> ( E ) | id
         # Welcome message when no parser is generated yet
         st.markdown("""
         <div class="card">
-            <h2 style="color: #6200EA; margin-top: 0;">Welcome to the SLR Parser Generator</h2>
+            <h2 style="margin-top: 0;">Welcome to the SLR Parser Generator</h2>
             <p style="font-size: 1.1rem;">
                 This tool helps you analyze context-free grammars and generate SLR parsing tables.
             </p>
-            <h3 style="color: #6200EA;">Getting Started</h3>
+            <h3>Getting Started</h3>
             <ol>
                 <li>Enter your grammar in the sidebar</li>
                 <li>Click "Generate Parser" to analyze your grammar</li>
