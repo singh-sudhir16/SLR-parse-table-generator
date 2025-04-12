@@ -498,66 +498,6 @@ def construct_parsing_table(canonical_collection, goto_table, terminals, non_ter
                 parsing_table[i][nt].append(str(next_state))
     return parsing_table
 
-# --------------------------
-# Parsing Simulation
-# --------------------------
-
-def parse_input(input_string, parsing_table, augmented_grammar, canonical_collection):
-    """Parse the input string using the SLR parsing table.
-       Returns (list of step actions, success flag).
-    """
-    tokens = input_string.strip().split()
-    tokens.append('$')
-    stack = [0]
-    pointer = 0
-    actions = []
-    
-    while True:
-        current_state = stack[-1]
-        current_token = tokens[pointer]
-        if current_token not in parsing_table[current_state]:
-            actions.append(f"Error: Unexpected token {current_token}")
-            return actions, False
-        possible_actions = parsing_table[current_state][current_token]
-        if not possible_actions:
-            actions.append(f"Error: No action for state {current_state} and token {current_token}")
-            return actions, False
-        if len(possible_actions) > 1:
-            actions.append(f"Error: Conflict in parsing table for state {current_state} and token {current_token}")
-            return actions, False
-        action = possible_actions[0]
-        if action.startswith('s'):
-            next_state = int(action[1:])
-            stack.append(current_token)
-            stack.append(next_state)
-            actions.append(f"Shift {current_token}, go to state {next_state}")
-            pointer += 1
-        elif action.startswith('r'):
-            prod_num = int(action[1:])
-            prod_nt, prod_rhs = augmented_grammar[prod_num]
-            for _ in range(2 * len(prod_rhs)):
-                stack.pop()
-            current_state = stack[-1]
-            stack.append(prod_nt)
-            if prod_nt in parsing_table[current_state]:
-                goto_actions = parsing_table[current_state][prod_nt]
-                if goto_actions:
-                    next_state = int(goto_actions[0])
-                    stack.append(next_state)
-                    rhs_str = ' '.join(prod_rhs) if prod_rhs else '#'
-                    actions.append(f"Reduce by {prod_nt} -> {rhs_str}, go to state {next_state}")
-                else:
-                    actions.append(f"Error: No goto action for state {current_state} and non-terminal {prod_nt}")
-                    return actions, False
-            else:
-                actions.append(f"Error: No entry in parsing table for state {current_state} and non-terminal {prod_nt}")
-                return actions, False
-        elif action == "acc":
-            actions.append("Accept! Input successfully parsed.")
-            return actions, True
-        else:
-            actions.append(f"Error: Invalid action {action}")
-            return actions, False
 
 # --------------------------
 # Formatting Functions for Display
@@ -691,7 +631,7 @@ F -> ( E ) | id
             """, unsafe_allow_html=True)
             
             # Create tabs with improved styling
-            tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Grammar Analysis", "📝 Productions", "🔍 LR(0) Items", "📋 Parsing Table", "🧪 Test Parser"])
+            tab1, tab2, tab3, tab4 = st.tabs(["📊 Grammar Analysis", "📝 Productions", "🔍 LR(0) Items", "📋 Parsing Table"])
             
             with tab1:
                 st.markdown("""
@@ -856,69 +796,6 @@ F -> ( E ) | id
                 
                 st.markdown("</div>", unsafe_allow_html=True)
             
-            with tab5:
-                st.markdown("""
-                <h2 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 8px;">Test Your Parser</h2>
-                """, unsafe_allow_html=True)
-                
-                st.markdown("""
-                <div class="card">
-                    <h3 style="margin-top: 0;">Input String</h3>
-                    <p>Enter a string to parse using your generated SLR parser.</p>
-                """, unsafe_allow_html=True)
-                
-                test_input = st.text_input("Enter input string (space-separated tokens):", 
-                                          value="id + id * id", 
-                                          help="Example: id + id * id")
-                
-                if st.button("Parse Input", key="parse_btn"):
-                    if test_input:
-                        actions, success = parse_input(test_input, parsing_table, augmented_grammar, canonical_collection)
-                        
-                        if success:
-                            st.markdown("""
-                            <div class="success-box">
-                                <h3 style="margin-top: 0;">✅ Parsing Successful</h3>
-                                <p>The input string was successfully parsed!</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        else:
-                            st.markdown("""
-                            <div class="error-box">
-                                <h3 style="margin-top: 0;">❌ Parsing Failed</h3>
-                                <p>The input string could not be parsed. See details below.</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        
-                        st.markdown("""
-                        <div style="margin-top: 20px;">
-                            <h4 style="color: #6200EA;">Parsing Steps:</h4>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        for i, action in enumerate(actions):
-                            if "Error" in action:
-                                st.markdown(f"""
-                                <div class="error-box" style="padding: 10px; border-radius: 8px; margin-bottom: 8px;">
-                                    <strong>Step {i+1}:</strong> {action}
-                                </div>
-                                """, unsafe_allow_html=True)
-                            elif "Accept" in action:
-                                st.markdown(f"""
-                                <div class="success-box" style="padding: 10px; border-radius: 8px; margin-bottom: 8px;">
-                                    <strong>Step {i+1}:</strong> {action}
-                                </div>
-                                """, unsafe_allow_html=True)
-                            else:
-                                st.markdown(f"""
-                                <div class="terminal" style="padding: 10px; border-radius: 8px; margin-bottom: 8px;">
-                                    <strong>Step {i+1}:</strong> {action}
-                                </div>
-                                """, unsafe_allow_html=True)
-                    else:
-                        st.warning("Please enter an input string to parse.")
-                
-                st.markdown("</div>", unsafe_allow_html=True)
         
         except Exception as e:
             st.markdown("""
